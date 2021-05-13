@@ -3,9 +3,21 @@ import datetime
 import imutils
 import numpy as np
 from centroid_tracker import CentroidTracker
+from imutils.object_detection import non_max_suppression
+import smtplib
+import time
+from email.mime.image import MIMEImage
+from email.mime.multipart import MIMEMultipart
+toadd="ms2030914@gmail.com@gmail.com"
+myadd="mk1263790@gmail.com"
+Subject="Security Alert"
+msg=MIMEMultipart()
+msg["Subject"]=Subject
+msg["From"]=myadd
+msg["To"]=toadd
 
-protopath = "MobileNetSSD_deploy.prototxt"
-modelpath = "MobileNetSSD_deploy.caffemodel"
+protopath = "persondetection.prototxt"
+modelpath = "persondetection.caffemodel"
 detector = cv2.dnn.readNetFromCaffe(prototxt=protopath, caffeModel=modelpath)
 
 CLASSES = ["background", "aeroplane", "bicycle", "bird", "boat", "bottle",
@@ -62,7 +74,7 @@ def main():
     fps = 0
     total_frames = 0
     lpc_count = 0
-    opc_coumt = 0
+    opc_count = 0
     object_id_list = []
 
     while True:
@@ -108,6 +120,51 @@ def main():
             if objectId not in object_id_list:
                 object_id_list.append(objectId)
 
+        fps_end_time = datetime.datetime.now()
+        time_diff = fps_end_time - fps_start_time
+        if time_diff.seconds == 0:
+            fps = 0.0
+        else:
+            fps = (total_frames / time_diff.seconds)
+
+        fps_text = "FPS: {:.2f}".format(fps)
+
+        cv2.putText(frame, fps_text, (5, 30), cv2.FONT_HERSHEY_PLAIN, 1, (0, 0, 255), 1)
+
+        lpc_count = len(objects)
+        opc_count = len(object_id_list)
+
+        lpc_txt = "LPC = {}".format(lpc_count)
+        opc_txt = "OPC = {}".format(opc_count)
+
+        cv2.putText(frame, lpc_txt, (5, 60), cv2.FONT_HERSHEY_PLAIN, 1, (0, 0, 255), 1)
+        cv2.putText(frame, opc_txt, (5, 90), cv2.FONT_HERSHEY_PLAIN, 1, (0, 0, 255), 1)
+
+        pick = non_max_suppression_fast(boundingboxes, 0.3)
+        #
+        for (xa, ya, wa, ha) in pick:
+        #     cv2.rectangle(frame, (xa, ya), (xa + W, ya + H), (255, 255, 0), 2)
+            cv2.imwrite("image.jpg", frame)
+            pic = open("image.jpg", "rb")
+            img = MIMEImage(pic.read())
+            pic.close()
+            msg.attach(img)
+            server = smtplib.SMTP("smtp.gmail.com", 587)
+            server.starttls()
+            server.login(user="mk1263790@gmail.com", password="manisidhu11")
+            server.sendmail(myadd, toadd, msg.as_string())
+            server.quit()
+            time.sleep(1)
+
+        cv2.imshow("Desktop", frame)
+        key = cv2.waitKey(1)
+        if key == ord('q'):
+            break
+
+    cv2.destroyAllWindows()
+
+
+main()
         fps_end_time = datetime.datetime.now()
         time_diff = fps_end_time - fps_start_time
         if time_diff.seconds == 0:
